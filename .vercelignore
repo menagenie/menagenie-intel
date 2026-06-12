@@ -1,0 +1,9 @@
+thumbs/
+clips/
+refresh.log
+.env
+serve.py
+refresh.py
+build.py
+extract_clips.py
+configure.py

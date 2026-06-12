@@ -208,6 +208,7 @@ def main():
                 "shortCode": sc,
                 "url": p.get("url"),
                 "thumb": thumb_local.name if thumb_local.exists() else None,
+                "thumbUrl": thumb_url or "",
                 "hook": hook_of(transcript, caption),
                 "transcript": transcript,
                 "caption": caption,
@@ -247,7 +248,7 @@ def main():
 
     # Grid cards (still available via toggle)
     def card_html(r):
-        thumb_src = f"thumbs/{r['thumb']}" if r["thumb"] else ""
+        thumb_src = f"thumbs/{r['thumb']}" if r["thumb"] else (r.get("thumbUrl") or "")
         ratio_str = f"{r['ratio']:.1f}×" if r["ratio"] else "—"
         hook_esc = escape(r["hook"]) if r["hook"] else "<em style='opacity:.4'>no hook</em>"
         return f"""
