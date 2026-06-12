@@ -163,7 +163,10 @@ def main():
     all_rows = []  # flat list of reels across all creators
 
     for handle in CREATORS:
-        posts, details = load_creator(handle)
+        try:
+            posts, details = load_creator(handle)
+        except FileNotFoundError:
+            continue
         views_list = [p.get("videoPlayCount") or p.get("videoViewCount") or 0 for p in posts]
         median_plays = statistics.median(views_list) if views_list else 0
 
