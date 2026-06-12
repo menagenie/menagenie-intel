@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Outlier Lab — Setup needed</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #0a0a0c; --bg-2: #14141a; --bg-3: #1e1e26;
+    --fg: #f4f4f6; --fg-dim: rgba(244,244,246,.55); --fg-faint: rgba(244,244,246,.32);
+    --orange: #FF8A3D; --pink: #FF3D6E; --border: rgba(255,255,255,.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", system-ui, sans-serif;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: min(620px, 92vw);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 40px 36px 32px;
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--orange), var(--pink));
+  }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--fg-faint); margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 28px; line-height: 1.15; letter-spacing: -.02em;
+    margin: 0 0 12px; font-weight: 600;
+  }
+  h1 .accent {
+    background: linear-gradient(90deg, var(--orange), var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  p { color: var(--fg-dim); font-size: 14px; line-height: 1.55; margin: 0 0 14px; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px;
+    background: var(--bg-3); padding: 2px 7px; border-radius: 5px;
+    color: var(--orange);
+  }
+  pre {
+    padding: 14px 16px; margin: 14px 0; overflow-x: auto;
+    color: var(--fg); background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; font-size: 13px;
+  }
+  .steps { display: flex; flex-direction: column; gap: 14px; margin-top: 20px; }
+  .step {
+    display: flex; gap: 14px; padding: 14px 16px;
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .step .n {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    color: #0a0a0c; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step .text { font-size: 13px; color: var(--fg); line-height: 1.5; }
+  .step .text code { color: var(--orange); font-weight: 600; }
+  footer {
+    margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--fg-faint); text-align: center;
+  }
+  footer a { color: var(--orange); text-decoration: none; }
+  footer a:hover { color: var(--pink); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">Outlier Lab</div>
+  <h1>Almost there — <span class="accent">finish setup</span> to see your dashboard.</h1>
+  <p>This page is the default landing before you've added any creators. Once you run the setup wizard and the refresh, this file is replaced with your live dashboard.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <div class="text">In your terminal, from this folder, run:<br>
+        <pre>python3 serve.py</pre>
+        Your browser will open the admin at <code>http://localhost:4747/admin</code>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <div class="text">In the admin: paste your <a href="https://console.apify.com/settings/api" target="_blank" style="color:var(--orange)">Apify API token</a>, then search for creators and add them. Set your refresh frequency.</div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div class="text">Click <code>Run refresh now</code>. After ~5–10 min, refresh this tab — you'll see your dashboard with outlier scores, transcripts, and 3-sec hook clips.</div>
+    </div>
+    <div class="step">
+      <div class="n">4</div>
+      <div class="text">Commit & push to GitHub. Add <code>APIFY_TOKEN</code> as a repo secret. Deploy to Vercel with <code>vercel</code>. From then on, GitHub Actions runs every Sunday automatically.</div>
+    </div>
+  </div>
+
+  <footer>
+    Full docs: <a href="https://github.com/ItsssssJack/outlier-lab" target="_blank">github.com/ItsssssJack/outlier-lab</a>
+  </footer>
+</div>
+</body>
+</html>
