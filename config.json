@@ -1,17 +1,8 @@
 {
   "creators": [
     {
-      "handle": "gocleanco",
-      "name": "GoCleanCo (Sarah McAllister)",
-      "followers": 3000000,
-      "posts": 0,
-      "verified": false,
-      "private": false,
-      "profilePic": ""
-    },
-    {
       "handle": "mrshinchhome",
-      "name": "Mrs Hinch",
+      "name": "Mrs Hinch (Sophie Hinchliffe) — UK",
       "followers": 4900000,
       "posts": 0,
       "verified": true,
@@ -19,18 +10,135 @@
       "profilePic": ""
     },
     {
-      "handle": "cleanmama",
-      "name": "Becky Rapinchuk — Clean Mama",
-      "followers": 774000,
+      "handle": "aurikatariina",
+      "name": "Auri Katariina — Finland",
+      "followers": 5000000,
       "posts": 0,
       "verified": false,
       "private": false,
       "profilePic": ""
     },
     {
-      "handle": "cleanthatup",
-      "name": "Brandon Pleshek",
-      "followers": 850000,
+      "handle": "operation_niki",
+      "name": "Rochelle N. Stewart — Operation Niki",
+      "followers": 4900000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "anna_louisa_at_home",
+      "name": "Anna Louisa — At Home",
+      "followers": 4200000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "mariekondo",
+      "name": "Marie Kondo",
+      "followers": 4100000,
+      "posts": 0,
+      "verified": true,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "brunchwithbabs",
+      "name": "Brunch With Babs",
+      "followers": 4000000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "decasa.style",
+      "name": "Gastón Williams — De Casa Style",
+      "followers": 3900000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "carolina.mccauley",
+      "name": "Carolina McCauley — AU",
+      "followers": 3200000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "gocleanco",
+      "name": "GoCleanCo — Sarah McAllister",
+      "followers": 3000000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "mama_mila_au",
+      "name": "Chantel Mila — AU",
+      "followers": 3000000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "prettymyadeco",
+      "name": "Judith J Kombe",
+      "followers": 2600000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "vanesa_amaro_",
+      "name": "Vanesa Amaro",
+      "followers": 2200000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleanwithbeax",
+      "name": "Bea Elton — Clean With Bea",
+      "followers": 2000000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "tuespacioorganizado",
+      "name": "Brenda Haines — Tu Espacio Organizado",
+      "followers": 2100000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "carolineasolomon",
+      "name": "Caroline Solomon",
+      "followers": 1700000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "jessicahaizman",
+      "name": "Jessica Haizman",
+      "followers": 1600000,
       "posts": 0,
       "verified": false,
       "private": false,
@@ -46,9 +154,9 @@
       "profilePic": ""
     },
     {
-      "handle": "mama_mila_au",
-      "name": "Chantel Mila",
-      "followers": 3000000,
+      "handle": "organizingspacesbykim",
+      "name": "Kim — Organizing Spaces By Kim",
+      "followers": 1300000,
       "posts": 0,
       "verified": false,
       "private": false,
@@ -64,9 +172,81 @@
       "profilePic": ""
     },
     {
+      "handle": "thefoldinglady",
+      "name": "Sophie Liard — The Folding Lady",
+      "followers": 1000000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleanthatup",
+      "name": "Brandon Pleshek — Clean That Up",
+      "followers": 850000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleanmama",
+      "name": "Becky Rapinchuk — Clean Mama",
+      "followers": 774000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleanyourhomee",
+      "name": "Eva Ortega — Clean Your Home",
+      "followers": 674000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "lauracleanaholic",
+      "name": "Laura Mountford — Cleanaholic",
+      "followers": 500000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "organizingwithkate",
+      "name": "Kate — Organizing With Kate",
+      "followers": 400000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "melissa.pateras",
+      "name": "Melissa Pateras — Laundry Expert",
+      "followers": 300000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
       "handle": "lynsey_queenofclean",
       "name": "Lynsey Crombie — Queen of Clean",
       "followers": 331000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleanwithnessa",
+      "name": "Nessa — Clean With Nessa",
+      "followers": 230000,
       "posts": 0,
       "verified": false,
       "private": false,
@@ -82,9 +262,189 @@
       "profilePic": ""
     },
     {
+      "handle": "cleanmyspace",
+      "name": "Melissa Maker — Clean My Space",
+      "followers": 122000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "twinklecleaningduo",
+      "name": "Nat & Kat — Twinkle Cleaning Duo",
+      "followers": 155000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "slayathomemother",
+      "name": "Slay At Home Mother",
+      "followers": 101000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "homewithchloe_x",
+      "name": "Chloe — Home With Chloe",
+      "followers": 50000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "bgin.clean",
+      "name": "Bruno Ginesty — bgin.clean (FR)",
+      "followers": 180000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
       "handle": "manouvelleviebyh",
-      "name": "Ma Nouvelle Vie (FR)",
+      "name": "Ma Nouvelle Vie — routines ménage (FR)",
       "followers": 9000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "thecleaningbusinesscoach",
+      "name": "The Cleaning Business Coach",
+      "followers": 50000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "tenacityacademy",
+      "name": "Tenacity Academy — Cleaning Business",
+      "followers": 20000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "bethanyjeancleaning",
+      "name": "Bethany Jean — Cleaning Business",
+      "followers": 30000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleaning_biz_growth_academy",
+      "name": "Cleaning Biz Growth Academy",
+      "followers": 15000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "morgangraffis",
+      "name": "Morgan Graffis — Cleaning Coach",
+      "followers": 8600,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "merrymaids",
+      "name": "Merry Maids — Franchise nationale",
+      "followers": 50000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "mollymaid",
+      "name": "Molly Maid — Franchise Canada/US",
+      "followers": 30000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleanwithconfidence",
+      "name": "Clean With Confidence",
+      "followers": 200000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "lifewiththeszoltyseks",
+      "name": "The Szoltyseks — Family Cleaning",
+      "followers": 6000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "sentretienmenager",
+      "name": "S Entretien Ménager — Montréal QC 🇨🇦",
+      "followers": 2000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "mintnettoyage",
+      "name": "Mint Nettoyage — Montréal & Laval QC 🇨🇦",
+      "followers": 3000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "thecleanpanther",
+      "name": "The Clean Panther — Montréal QC 🇨🇦",
+      "followers": 5000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "snamcleaningmontreal",
+      "name": "SNAM Cleaning Services — Montréal QC 🇨🇦",
+      "followers": 2000,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "nettoyage_procleaning",
+      "name": "Nettoyage Pro Cleaning — Montréal QC 🇨🇦",
+      "followers": 130,
+      "posts": 0,
+      "verified": false,
+      "private": false,
+      "profilePic": ""
+    },
+    {
+      "handle": "cleaning_services_montreal",
+      "name": "Cleaning Montreal (depuis 2007) QC 🇨🇦",
+      "followers": 3000,
       "posts": 0,
       "verified": false,
       "private": false,
