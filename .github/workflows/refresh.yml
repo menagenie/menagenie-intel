@@ -36,6 +36,7 @@ jobs:
       - name: Run refresh pipeline
         env:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python3 refresh.py
 
       - name: Commit refreshed data + dashboard
@@ -49,6 +50,16 @@ jobs:
             git commit -m "Intel refresh: $(date -u +%Y-%m-%d)"
             git push
           fi
+
+      - name: Weekly digest issue
+        if: hashFiles('_digest_body.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "${{ github.repository }}" \
+            --title "📊 Ménagénie Intel — Top 7 de la semaine ($(date -u +%Y-%m-%d))" \
+            --body-file _digest_body.md \
+            --label "weekly-digest"
 
       - name: Notify on failure
         if: failure()

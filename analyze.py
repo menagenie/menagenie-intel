@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""
+Hook classification + Ménagénie-adapted script generation via the
+Claude API. Called from refresh.py's weekly pipeline: classify_hook()
+is cheap and applied to every transcribed reel/video; generate_adaptation()
+is pricier and applied only to the week's top 7 outliers (the ones that
+also feed the weekly digest issue).
+
+Requires ANTHROPIC_API_KEY env var. If it's unset, every function here
+returns None so the rest of the pipeline degrades gracefully instead
+of failing — hook classification and script generation are additive,
+not load-bearing.
+"""
+import json
+import os
+import urllib.error
+import urllib.request
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
+# Same 13-category taxonomy as the spoken-hook generator at
+# menagenie/hub-rapports/reports/generateur-script-video.html — reusing
+# it keeps both tools speaking the same language, so a hook type found
+# here can deep-link straight into that tool.
+SPOKEN_HOOK_TYPES = [
+    "Secret Reveal / Breakdown", "Case Study", "Problem", "Contrarian",
+    "Negative", "Education", "List", "Scenario/Hypothetical", "Comparison",
+    "Question", "Ranking/Rating", "Authority", "Personal Experience",
+]
+
+MENAGENIE_BRAND_CONTEXT = (
+    "Ménagénie est une entreprise d'entretien ménager résidentiel et "
+    "commercial au Québec (Montréal, Laval, Rive-Sud). Slogan : "
+    "\"Le ménage parfait. Zéro gestion. Zéro stress.\" Ton : direct, "
+    "rassurant, orienté résultat — pas de jargon corporate."
+)
+
+
+def _call_claude(system, user_message, max_tokens=300):
+    if not ANTHROPIC_API_KEY:
+        return None
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": max_tokens,
+        "system": system,
+        "messages": [{"role": "user", "content": user_message}],
+    }
+    req = urllib.request.Request(
+        ANTHROPIC_URL,
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.load(r)
+        return "".join(b.get("text", "") for b in data.get("content", [])).strip() or None
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        print(f"  ! Claude API call failed: {e}")
+        return None
+
+
+def classify_hook(transcript):
+    """Return one of SPOKEN_HOOK_TYPES, or None if classification fails
+    or there's no transcript to classify."""
+    if not transcript or not transcript.strip() or not ANTHROPIC_API_KEY:
+        return None
+    system = (
+        "You classify the opening hook of a short-form video transcript "
+        "into exactly one category. Reply with ONLY the category name, "
+        "nothing else. Categories: " + ", ".join(SPOKEN_HOOK_TYPES)
+    )
+    result = _call_claude(system, transcript[:600], max_tokens=20)
+    if not result:
+        return None
+    for cat in SPOKEN_HOOK_TYPES:
+        if cat.lower() in result.lower():
+            return cat
+    return None
+
+
+def generate_adaptation(transcript, hook_type):
+    """Draft a short Ménagénie-branded opening line inspired by this
+    outlier's hook mechanism. Returns None on failure."""
+    if not transcript or not transcript.strip() or not ANTHROPIC_API_KEY:
+        return None
+    system = (
+        f"{MENAGENIE_BRAND_CONTEXT}\n\n"
+        f"On te donne la transcription d'un reel qui a surperformé chez un "
+        f"concurrent, classé comme hook de type \"{hook_type}\". Écris une "
+        f"ouverture de 2-3 phrases (en français québécois, adaptée à "
+        f"Ménagénie) qui reprend le MÊME mécanisme d'accroche sur un sujet "
+        f"pertinent au ménage résidentiel ou commercial. Ne traduis pas "
+        f"littéralement — adapte l'angle. Réponds seulement avec le script, "
+        f"sans préambule ni guillemets."
+    )
+    return _call_claude(system, transcript[:600], max_tokens=200)

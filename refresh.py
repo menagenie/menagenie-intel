@@ -23,6 +23,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import analyze
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 CLIPS = ROOT / "clips"
@@ -630,6 +632,100 @@ def build_dashboard():
     print(r.stdout.strip())
 
 
+def classify_all_hooks():
+    """Cheap: classify hook type for every reel/video that has a
+    transcript but no hook_type yet, across every creator and platform.
+    No-ops per-item if ANTHROPIC_API_KEY isn't set (see analyze.py)."""
+    classified = 0
+    for handle in CREATORS:
+        posts = load_existing_posts(handle)
+        changed = False
+        for p in posts:
+            if p.get("transcript") and not p.get("hook_type"):
+                hook_type = analyze.classify_hook(p["transcript"])
+                if hook_type:
+                    p["hook_type"] = hook_type
+                    classified += 1
+                    changed = True
+        if changed:
+            save_posts(handle, posts)
+    for tt_handle in TIKTOK_CREATORS.values():
+        posts = load_existing_tiktok_posts(tt_handle)
+        changed = False
+        for p in posts:
+            if p.get("transcript") and not p.get("hook_type"):
+                hook_type = analyze.classify_hook(p["transcript"])
+                if hook_type:
+                    p["hook_type"] = hook_type
+                    classified += 1
+                    changed = True
+        if changed:
+            save_tiktok_posts(tt_handle, posts)
+    if classified:
+        print(f"classified {classified} hook(s)")
+
+
+def generate_digest():
+    """Generate a Ménagénie-adapted script for the week's top 7 outliers
+    (data/_digest_top7.json, written by build.py) and write the digest
+    body for the GitHub Actions step to turn into an issue. Adaptation
+    generation is a no-op per-item if ANTHROPIC_API_KEY isn't set."""
+    top7_file = DATA / "_digest_top7.json"
+    if not top7_file.exists():
+        return
+    top7 = json.loads(top7_file.read_text())
+    if not top7:
+        print("no outliers this week — skipping digest")
+        return
+
+    for item in top7:
+        handle = item["creator_handle"].replace("__tiktok", "")
+        platform = item["platform"]
+        sc = item["shortCode"]
+        if platform == "tiktok":
+            data_handle = TIKTOK_CREATORS.get(handle)
+            if not data_handle:
+                continue
+            posts = load_existing_tiktok_posts(data_handle)
+        else:
+            data_handle = handle
+            posts = load_existing_posts(handle)
+        post = next((p for p in posts if p.get("shortCode") == sc), None)
+        if not post or not post.get("transcript"):
+            continue
+        changed = False
+        if not post.get("hook_type"):
+            hook_type = analyze.classify_hook(post["transcript"])
+            if hook_type:
+                post["hook_type"] = hook_type
+                changed = True
+        if not post.get("adapted_script") and post.get("hook_type"):
+            adapted = analyze.generate_adaptation(post["transcript"], post["hook_type"])
+            if adapted:
+                post["adapted_script"] = adapted
+                changed = True
+        item["hook_type"] = post.get("hook_type")
+        item["adapted_script"] = post.get("adapted_script")
+        if changed:
+            if platform == "tiktok":
+                save_tiktok_posts(data_handle, posts)
+            else:
+                save_posts(data_handle, posts)
+
+    lines = [f"# Ménagénie Intel — Top {len(top7)} de la semaine\n"]
+    for i, item in enumerate(top7, 1):
+        lines.append(
+            f"## {i}. @{item['creator_username']} ({item['platform']}) — "
+            f"{item['ratio']:.1f}× · {item['band_label']}"
+        )
+        lines.append(f"**Hook** ({item.get('hook_type') or 'non classé'}) : {item['hook'] or '(pas de hook détecté)'}")
+        if item.get("adapted_script"):
+            lines.append(f"\n💡 **Adaptation Ménagénie :**\n> {item['adapted_script']}")
+        lines.append(f"\n🔗 {item['url']}\n")
+    (ROOT / "_digest_body.md").write_text("\n".join(lines))
+    print(f"digest written for top {len(top7)} outlier(s)")
+
+
 def main():
     print(f"=== refresh started · {datetime.now().isoformat()} ===")
     print(f"creators: {CREATORS}\n")
@@ -661,7 +757,11 @@ def main():
         tt_transcripts = pass2_tiktok_transcripts_for_new(tt_new_urls)
         merge_tiktok_pass2_transcripts(tt_transcripts)
 
+    classify_all_hooks()
     build_dashboard()
+    generate_digest()
+    build_dashboard()  # re-run so this week's freshly-generated adaptations render too
+
     print(f"\n=== refresh done · {datetime.now().isoformat()} ===")
 
 

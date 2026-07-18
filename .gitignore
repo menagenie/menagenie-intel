@@ -19,3 +19,7 @@ venv/
 
 # Logs
 *.log
+.vercel
+
+# Weekly digest body — read by the workflow step, not committed
+_digest_body.md

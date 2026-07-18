@@ -266,6 +266,8 @@ def main():
                 "creator_verified": creator_meta["verified"],
                 "platform": platform,
                 "still_climbing": bool(p.get("still_climbing")),
+                "hook_type": p.get("hook_type") or "",
+                "adapted_script": p.get("adapted_script") or "",
             })
         return creator_meta, rows
 
@@ -295,6 +297,22 @@ def main():
     all_rows.sort(key=lambda r: (r["ratio"], r["posted_ts"]), reverse=True)
     outliers = [r for r in all_rows if r["ratio"] >= 2]
     has_tiktok = any(c["platform"] == "tiktok" for c in creators)
+
+    # Top 7 by outlier ratio, for refresh.py's weekly digest step. Written
+    # here (not computed twice in refresh.py) since ratio depends on each
+    # creator's median, which only this file computes.
+    top7 = [
+        {
+            "shortCode": r["shortCode"], "url": r["url"], "hook": r["hook"],
+            "transcript": r["transcript"], "ratio": r["ratio"],
+            "band_label": r["band_label"], "platform": r["platform"],
+            "creator_username": r["creator_username"],
+            "creator_handle": r["creator_handle"],
+        }
+        for r in outliers[:7]
+    ]
+    (DATA / "_digest_top7.json").write_text(json.dumps(top7, indent=2))
+    has_hook_types = any(r["hook_type"] for r in all_rows)
 
     today = datetime.now().strftime("%A %B %-d, %Y")
     total_plays = sum(r["plays"] for r in all_rows)
@@ -485,6 +503,9 @@ def main():
   .filter-search {{ flex: 1; min-width: 240px; padding: 8px 12px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 8px; color: var(--fg); font-size: 13px; outline: none; transition: border-color .12s; }}
   .filter-search:focus {{ border-color: var(--orange); }}
   .filter-search::placeholder {{ color: var(--fg-faint); }}
+  .hook-type-select {{ padding: 7px 10px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 8px; color: var(--fg-dim); font-size: 11px; font-weight: 600; outline: none; }}
+  .hook-type-select:hover {{ color: var(--fg); }}
+  .hook-type-badge {{ display: inline-block; margin-top: 3px; padding: 2px 7px; border-radius: 999px; background: rgba(255,138,61,.12); color: var(--orange); font-size: 10px; font-weight: 600; }}
   .band-filter {{ display: inline-flex; gap: 4px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }}
   .band-filter button {{ padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--fg-dim); transition: all .12s; display: inline-flex; align-items: center; gap: 5px; }}
   .band-filter button:hover:not(.active) {{ color: var(--fg); }}
@@ -558,8 +579,11 @@ def main():
   .modal-meta {{ font-size: 12px; color: var(--fg-dim); display: flex; gap: 16px; flex-wrap: wrap; }}
   .modal-caption {{ font-size: 13px; line-height: 1.5; color: var(--fg-dim); white-space: pre-wrap; max-height: 180px; overflow-y: auto; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); }}
   .modal-field-label {{ font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-faint); margin-top: 4px; font-weight: 600; }}
-  .modal-link {{ display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--orange); color: #0a0a0c; border-radius: 10px; font-size: 13px; font-weight: 600; transition: background .15s; align-self: flex-start; }}
+  .modal-link {{ display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--orange); color: #0a0a0c; border-radius: 10px; font-size: 13px; font-weight: 600; transition: background .15s; align-self: flex-start; margin-top: 8px; }}
   .modal-link:hover {{ background: var(--pink); color: #fff; }}
+  .modal-adaptation {{ border-color: rgba(255,138,61,.35); background: rgba(255,138,61,.06); }}
+  .modal-link-secondary {{ background: var(--bg-3); color: var(--fg); border: 1px solid var(--border-strong); }}
+  .modal-link-secondary:hover {{ background: var(--bg-2); color: var(--orange); }}
   @keyframes fadeIn {{ from {{ opacity: 0 }} to {{ opacity: 1 }} }}
   @keyframes popIn {{ from {{ opacity: 0; transform: translate(-50%, -48%) scale(.97) }} to {{ opacity: 1; transform: translate(-50%, -50%) scale(1) }} }}
   @media (max-width: 900px) {{
@@ -637,6 +661,7 @@ def main():
         <button data-platform="instagram">📸 Instagram</button>
         <button data-platform="tiktok">🎵 TikTok</button>
       </div>''' if has_tiktok else ''}
+      {'<select class="hook-type-select" id="hook-type-filter"><option value="all">All hook types</option></select>' if has_hook_types else ''}
       <button class="toggle-pill" id="toggle-completed" type="button">Hide completed</button>
       <button class="toggle-pill" id="toggle-deleted" type="button">Show deleted</button>
       <span class="filter-reset" id="filter-reset">Reset filters</span>
@@ -706,6 +731,11 @@ def main():
         <div class="modal-caption" id="modal-transcript">—</div>
         <div class="modal-field-label">Description (caption)</div>
         <div class="modal-caption" id="modal-caption">—</div>
+        <div id="modal-adaptation-block" hidden>
+          <div class="modal-field-label">💡 Adaptation Ménagénie</div>
+          <div class="modal-caption modal-adaptation" id="modal-adaptation">—</div>
+          <a id="modal-generator-link" class="modal-link modal-link-secondary" href="#" target="_blank" rel="noopener">Ouvrir dans le générateur de script ↗</a>
+        </div>
         <a id="modal-link" class="modal-link" href="#" target="_blank" rel="noopener">Open on Instagram ↗</a>
       </div>
     </div>
@@ -746,6 +776,7 @@ const BAND_KEY = "ig-dashboard-band";
 const HIDE_COMPLETED_KEY = "ig-dashboard-hide-completed";
 const SHOW_DELETED_KEY = "ig-dashboard-show-deleted";
 const PLATFORM_KEY = "ig-dashboard-platform";
+const HOOK_TYPE_KEY = "ig-dashboard-hook-type";
 
 let activeFilter = localStorage.getItem(FILTER_KEY) || "__all__";
 let completed = new Set(JSON.parse(localStorage.getItem(COMPLETED_KEY) || "[]"));
@@ -753,6 +784,7 @@ let deleted = new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || "[]"));
 let searchText = localStorage.getItem(SEARCH_KEY) || "";
 let bandFilter = localStorage.getItem(BAND_KEY) || "all";
 let platformFilter = localStorage.getItem(PLATFORM_KEY) || "all";
+let hookTypeFilter = localStorage.getItem(HOOK_TYPE_KEY) || "all";
 let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === "1";
 let showDeleted = localStorage.getItem(SHOW_DELETED_KEY) === "1";
 let sortKey = "posted_ts";
@@ -764,6 +796,7 @@ function saveState() {{
   localStorage.setItem(SEARCH_KEY, searchText);
   localStorage.setItem(BAND_KEY, bandFilter);
   localStorage.setItem(PLATFORM_KEY, platformFilter);
+  localStorage.setItem(HOOK_TYPE_KEY, hookTypeFilter);
   localStorage.setItem(HIDE_COMPLETED_KEY, hideCompleted ? "1" : "0");
   localStorage.setItem(SHOW_DELETED_KEY, showDeleted ? "1" : "0");
 }}
@@ -773,6 +806,7 @@ function getFiltered() {{
   if (activeFilter !== "__all__") rows = rows.filter(r => r.creator_handle === activeFilter);
   if (bandFilter !== "all") rows = rows.filter(r => r.band_class === bandFilter);
   if (platformFilter !== "all") rows = rows.filter(r => r.platform === platformFilter);
+  if (hookTypeFilter !== "all") rows = rows.filter(r => r.hook_type === hookTypeFilter);
   if (searchText.trim()) {{
     const q = searchText.trim().toLowerCase();
     rows = rows.filter(r =>
@@ -869,6 +903,7 @@ function renderTable() {{
         </td>
         <td class="hook-cell">
           <span class="row-hook" title="${{escapeHtml(r.hook || '')}}">${{r.hook ? escapeHtml(r.hook) : "<em>no hook</em>"}}</span>
+          ${{r.hook_type ? `<span class="hook-type-badge">${{escapeHtml(r.hook_type)}}</span>` : ''}}
         </td>
         <td class="num">${{fmtNum(r.plays)}}</td>
         <td class="num">${{fmtNum(r.likes)}}</td>
@@ -981,6 +1016,16 @@ function openModal(shortCode) {{
   `;
   document.getElementById("modal-transcript").textContent = r.transcript || "(no transcript)";
   document.getElementById("modal-caption").textContent = r.caption || "(no caption)";
+  const adaptationBlock = document.getElementById("modal-adaptation-block");
+  if (r.adapted_script) {{
+    adaptationBlock.hidden = false;
+    document.getElementById("modal-adaptation").textContent = r.adapted_script;
+    document.getElementById("modal-generator-link").href =
+      "https://hub-rapports.vercel.app/reports/generateur-script-video.html" +
+      (r.hook_type ? `?hook=${{encodeURIComponent(r.hook_type)}}` : "");
+  }} else {{
+    adaptationBlock.hidden = true;
+  }}
   const link = document.getElementById("modal-link");
   link.href = r.url;
   link.textContent = r.platform === "tiktok" ? "Open on TikTok ↗" : "Open on Instagram ↗";
@@ -1092,6 +1137,24 @@ if (platformFilterEl) {{
   }});
 }}
 
+const hookTypeSelectEl = document.getElementById("hook-type-filter");
+if (hookTypeSelectEl) {{
+  const types = [...new Set(REELS.map(r => r.hook_type).filter(Boolean))].sort();
+  types.forEach(t => {{
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    hookTypeSelectEl.appendChild(opt);
+  }});
+  hookTypeSelectEl.value = hookTypeFilter;
+  hookTypeSelectEl.addEventListener("change", () => {{
+    hookTypeFilter = hookTypeSelectEl.value;
+    saveState();
+    renderTable();
+    updateRowCount();
+  }});
+}}
+
 const tCompleted = document.getElementById("toggle-completed");
 const tDeleted = document.getElementById("toggle-deleted");
 function syncToggles() {{
@@ -1120,6 +1183,7 @@ document.getElementById("filter-reset").addEventListener("click", () => {{
   searchText = "";
   bandFilter = "all";
   platformFilter = "all";
+  hookTypeFilter = "all";
   hideCompleted = false;
   showDeleted = false;
   searchInput.value = "";
@@ -1129,6 +1193,7 @@ document.getElementById("filter-reset").addEventListener("click", () => {{
     platformFilterEl.querySelectorAll("button").forEach(x => x.classList.remove("active"));
     platformFilterEl.querySelector('button[data-platform="all"]').classList.add("active");
   }}
+  if (hookTypeSelectEl) hookTypeSelectEl.value = "all";
   syncToggles();
   saveState();
   renderTable();
