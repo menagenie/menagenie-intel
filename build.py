@@ -54,6 +54,20 @@ def _load_creators():
 CREATORS = _load_creators()
 
 
+def _load_tiktok_creators():
+    """Map of {ig_handle: tiktok_handle} for the targeted TikTok subset."""
+    config_path = ROOT / "config.json"
+    data = json.loads(config_path.read_text())
+    return {
+        c["handle"]: c["tiktok"]
+        for c in data.get("creators", [])
+        if c.get("tiktok")
+    }
+
+
+TIKTOK_CREATORS = _load_tiktok_creators()
+
+
 def load(path):
     with open(path) as f:
         return json.load(f)
@@ -130,6 +144,12 @@ def load_creator(handle):
     return posts, details
 
 
+def load_tiktok_creator(tt_handle):
+    posts = load(DATA / f"{tt_handle}_tiktok_posts.json")["items"]
+    details = load(DATA / f"{tt_handle}_tiktok_details.json")["dataset"]["previewItems"][0]
+    return posts, details
+
+
 def main():
     THUMBS.mkdir(parents=True, exist_ok=True)
 
@@ -153,32 +173,48 @@ def main():
             if sc and thumb_url:
                 fetch_jobs.append((thumb_url, THUMBS / f"{sc}.jpg"))
 
+    for handle, tt_handle in TIKTOK_CREATORS.items():
+        try:
+            details = load(DATA / f"{tt_handle}_tiktok_details.json")["dataset"]["previewItems"][0]
+        except (FileNotFoundError, KeyError, IndexError):
+            continue
+        purl = details.get("profilePicUrlHD") or details.get("profilePicUrl")
+        if purl:
+            fetch_jobs.append((purl, THUMBS / f"_profile_tt_{tt_handle}.jpg"))
+        try:
+            posts = load(DATA / f"{tt_handle}_tiktok_posts.json")["items"]
+        except FileNotFoundError:
+            continue
+        for p in posts:
+            sc = p.get("shortCode") or ""
+            thumb_url = p.get("displayUrl")
+            if sc and thumb_url:
+                fetch_jobs.append((thumb_url, THUMBS / f"tt_{sc}.jpg"))
+
     pending = [(u, d) for (u, d) in fetch_jobs if not (d.exists() and d.stat().st_size > 0)]
     if pending:
         print(f"downloading {len(pending)} images in parallel (of {len(fetch_jobs)} total)…")
         with ThreadPoolExecutor(max_workers=16) as ex:
             list(ex.map(lambda j: fetch(j[0], j[1]), pending))
 
-    creators = []  # ordered creators metadata
-    all_rows = []  # flat list of reels across all creators
-
-    for handle in CREATORS:
-        try:
-            posts, details = load_creator(handle)
-        except FileNotFoundError:
-            continue
+    def process_creator_group(pseudo_handle, posts, details, profile_thumb_name, video_thumb_prefix, platform):
+        """Build creator_meta + row dicts for one (creator, platform) pair.
+        Instagram and TikTok posts are pre-normalized to the same field
+        names (see refresh.py), so this is shared between platforms —
+        each platform gets its OWN median/outlier baseline rather than a
+        blended one, since view counts aren't comparable across them."""
         views_list = [p.get("videoPlayCount") or p.get("videoViewCount") or 0 for p in posts]
         median_plays = statistics.median(views_list) if views_list else 0
 
         profile_url = details.get("profilePicUrlHD") or details.get("profilePicUrl")
-        profile_local = THUMBS / f"_profile_{handle}.jpg"
+        profile_local = THUMBS / profile_thumb_name
         if profile_url:
             fetch(profile_url, profile_local)
-        profile_path = f"thumbs/_profile_{handle}.jpg" if profile_local.exists() else None
+        profile_path = f"thumbs/{profile_thumb_name}" if profile_local.exists() else None
 
         creator_meta = {
-            "handle": handle,
-            "username": details.get("username") or handle,
+            "handle": pseudo_handle,
+            "username": details.get("username") or pseudo_handle,
             "fullName": details.get("fullName") or "",
             "followers": details.get("followersCount") or 0,
             "posts": details.get("postsCount") or 0,
@@ -186,15 +222,16 @@ def main():
             "profile_pic": profile_path,
             "median_plays": median_plays,
             "reels_in_window": len(posts),
+            "platform": platform,
         }
-        creators.append(creator_meta)
 
+        rows = []
         for p in posts:
             plays = p.get("videoPlayCount") or p.get("videoViewCount") or 0
             ratio = (plays / median_plays) if median_plays else None
             sc = p.get("shortCode", "unknown")
             thumb_url = p.get("displayUrl")
-            thumb_local = THUMBS / f"{sc}.jpg"
+            thumb_local = THUMBS / f"{video_thumb_prefix}{sc}.jpg"
             if thumb_url:
                 fetch(thumb_url, thumb_local)
             ts = p.get("timestamp")
@@ -204,7 +241,7 @@ def main():
             band = outlier_band(ratio)
             transcript = p.get("transcript") or ""
             caption = p.get("caption") or ""
-            all_rows.append({
+            rows.append({
                 "shortCode": sc,
                 "url": p.get("url"),
                 "thumb": thumb_local.name if thumb_local.exists() else None,
@@ -223,14 +260,40 @@ def main():
                 "band_class": band[0],
                 "band_label": band[1],
                 "band_color": band[2],
-                "creator_handle": handle,
+                "creator_handle": pseudo_handle,
                 "creator_username": creator_meta["username"],
                 "creator_avatar": profile_path,
                 "creator_verified": creator_meta["verified"],
+                "platform": platform,
             })
+        return creator_meta, rows
+
+    creators = []  # ordered creators metadata
+    all_rows = []  # flat list of reels across all creators
+
+    for handle in CREATORS:
+        try:
+            posts, details = load_creator(handle)
+        except FileNotFoundError:
+            continue
+        creator_meta, rows = process_creator_group(
+            handle, posts, details, f"_profile_{handle}.jpg", "", "instagram")
+        creators.append(creator_meta)
+        all_rows.extend(rows)
+
+    for handle, tt_handle in TIKTOK_CREATORS.items():
+        try:
+            posts, details = load_tiktok_creator(tt_handle)
+        except FileNotFoundError:
+            continue
+        creator_meta, rows = process_creator_group(
+            f"{handle}__tiktok", posts, details, f"_profile_tt_{tt_handle}.jpg", "tt_", "tiktok")
+        creators.append(creator_meta)
+        all_rows.extend(rows)
 
     all_rows.sort(key=lambda r: (r["ratio"], r["posted_ts"]), reverse=True)
     outliers = [r for r in all_rows if r["ratio"] >= 2]
+    has_tiktok = any(c["platform"] == "tiktok" for c in creators)
 
     today = datetime.now().strftime("%A %B %-d, %Y")
     total_plays = sum(r["plays"] for r in all_rows)
@@ -281,12 +344,13 @@ def main():
     def creator_chip(c):
         verified = '<span class="verified">✓</span>' if c["verified"] else ""
         avatar = f'<img src="{escape(c["profile_pic"])}" alt="">' if c["profile_pic"] else '<div class="avatar-fallback"></div>'
+        platform_tag = " · TikTok" if c["platform"] == "tiktok" else ""
         return f"""
         <button class="creator-chip" data-creator="{c['handle']}" type="button">
           {avatar}
           <div class="chip-info">
             <div class="chip-name">@{escape(c['username'])}{verified}</div>
-            <div class="chip-stats">{fmt_num(c['followers'])} followers · median {fmt_num(c['median_plays'])} · {c['reels_in_window']} reels</div>
+            <div class="chip-stats">{fmt_num(c['followers'])} followers · median {fmt_num(c['median_plays'])} · {c['reels_in_window']} reels{platform_tag}</div>
           </div>
         </button>
         """
@@ -566,6 +630,11 @@ def main():
         <button data-band="good"><span class="swatch" style="background:#FFD43D"></span>Working</button>
         <button data-band="normal"><span class="swatch" style="background:rgba(255,255,255,.4)"></span>Normal</button>
       </div>
+      {'''<div class="band-filter" id="platform-filter">
+        <button data-platform="all" class="active">All platforms</button>
+        <button data-platform="instagram">📸 Instagram</button>
+        <button data-platform="tiktok">🎵 TikTok</button>
+      </div>''' if has_tiktok else ''}
       <button class="toggle-pill" id="toggle-completed" type="button">Hide completed</button>
       <button class="toggle-pill" id="toggle-deleted" type="button">Show deleted</button>
       <span class="filter-reset" id="filter-reset">Reset filters</span>
@@ -674,12 +743,14 @@ const SEARCH_KEY = "ig-dashboard-search";
 const BAND_KEY = "ig-dashboard-band";
 const HIDE_COMPLETED_KEY = "ig-dashboard-hide-completed";
 const SHOW_DELETED_KEY = "ig-dashboard-show-deleted";
+const PLATFORM_KEY = "ig-dashboard-platform";
 
 let activeFilter = localStorage.getItem(FILTER_KEY) || "__all__";
 let completed = new Set(JSON.parse(localStorage.getItem(COMPLETED_KEY) || "[]"));
 let deleted = new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || "[]"));
 let searchText = localStorage.getItem(SEARCH_KEY) || "";
 let bandFilter = localStorage.getItem(BAND_KEY) || "all";
+let platformFilter = localStorage.getItem(PLATFORM_KEY) || "all";
 let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === "1";
 let showDeleted = localStorage.getItem(SHOW_DELETED_KEY) === "1";
 let sortKey = "posted_ts";
@@ -690,6 +761,7 @@ function saveState() {{
   localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
   localStorage.setItem(SEARCH_KEY, searchText);
   localStorage.setItem(BAND_KEY, bandFilter);
+  localStorage.setItem(PLATFORM_KEY, platformFilter);
   localStorage.setItem(HIDE_COMPLETED_KEY, hideCompleted ? "1" : "0");
   localStorage.setItem(SHOW_DELETED_KEY, showDeleted ? "1" : "0");
 }}
@@ -698,6 +770,7 @@ function getFiltered() {{
   let rows = REELS;
   if (activeFilter !== "__all__") rows = rows.filter(r => r.creator_handle === activeFilter);
   if (bandFilter !== "all") rows = rows.filter(r => r.band_class === bandFilter);
+  if (platformFilter !== "all") rows = rows.filter(r => r.platform === platformFilter);
   if (searchText.trim()) {{
     const q = searchText.trim().toLowerCase();
     rows = rows.filter(r =>
@@ -789,7 +862,7 @@ function renderTable() {{
           <span class="${{pillClass}}" ${{pillStyle}}>${{ratioStr}}</span>
         </td>
         <td class="creator-col">
-          <span class="handle">@${{escapeHtml(r.creator_username)}}</span>
+          <span class="handle">${{r.platform === "tiktok" ? "🎵 " : "📸 "}}@${{escapeHtml(r.creator_username)}}</span>
         </td>
         <td class="hook-cell">
           <span class="row-hook" title="${{escapeHtml(r.hook || '')}}">${{r.hook ? escapeHtml(r.hook) : "<em>no hook</em>"}}</span>
@@ -905,7 +978,9 @@ function openModal(shortCode) {{
   `;
   document.getElementById("modal-transcript").textContent = r.transcript || "(no transcript)";
   document.getElementById("modal-caption").textContent = r.caption || "(no caption)";
-  document.getElementById("modal-link").href = r.url;
+  const link = document.getElementById("modal-link");
+  link.href = r.url;
+  link.textContent = r.platform === "tiktok" ? "Open on TikTok ↗" : "Open on Instagram ↗";
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -996,6 +1071,24 @@ document.querySelectorAll("#band-filter button").forEach(b => {{
   }});
 }});
 
+const platformFilterEl = document.getElementById("platform-filter");
+if (platformFilterEl) {{
+  platformFilterEl.querySelectorAll("button").forEach(b => {{
+    if (b.dataset.platform === platformFilter) {{
+      platformFilterEl.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    }}
+    b.addEventListener("click", () => {{
+      platformFilter = b.dataset.platform;
+      platformFilterEl.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      saveState();
+      renderTable();
+      updateRowCount();
+    }});
+  }});
+}}
+
 const tCompleted = document.getElementById("toggle-completed");
 const tDeleted = document.getElementById("toggle-deleted");
 function syncToggles() {{
@@ -1023,11 +1116,16 @@ syncToggles();
 document.getElementById("filter-reset").addEventListener("click", () => {{
   searchText = "";
   bandFilter = "all";
+  platformFilter = "all";
   hideCompleted = false;
   showDeleted = false;
   searchInput.value = "";
   document.querySelectorAll("#band-filter button").forEach(x => x.classList.remove("active"));
   document.querySelector('#band-filter button[data-band="all"]').classList.add("active");
+  if (platformFilterEl) {{
+    platformFilterEl.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+    platformFilterEl.querySelector('button[data-platform="all"]').classList.add("active");
+  }}
   syncToggles();
   saveState();
   renderTable();

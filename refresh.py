@@ -145,6 +145,224 @@ REEL_FIELDS = [
     "ownerUsername", "ownerFullName",
 ]
 
+TIKTOK_SCRAPER = "clockworks~tiktok-scraper"
+
+
+def _load_tiktok_creators():
+    """Map of {ig_handle: tiktok_handle} for the targeted subset of
+    creators that have a verified 'tiktok' field in config.json."""
+    config_path = ROOT / "config.json"
+    data = json.loads(config_path.read_text())
+    return {
+        c["handle"]: c["tiktok"]
+        for c in data.get("creators", [])
+        if c.get("tiktok")
+    }
+
+
+TIKTOK_CREATORS = _load_tiktok_creators()
+
+
+def load_existing_tiktok_posts(tt_handle):
+    p = DATA / f"{tt_handle}_tiktok_posts.json"
+    if not p.exists():
+        return []
+    try:
+        return json.load(open(p))["items"]
+    except (json.JSONDecodeError, KeyError):
+        return []
+
+
+def save_tiktok_posts(tt_handle, items):
+    DATA.mkdir(parents=True, exist_ok=True)
+    with open(DATA / f"{tt_handle}_tiktok_posts.json", "w") as f:
+        json.dump({"items": items}, f)
+
+
+def save_tiktok_details(tt_handle, details):
+    DATA.mkdir(parents=True, exist_ok=True)
+    wrapper = {"dataset": {"previewItems": [details]}}
+    with open(DATA / f"{tt_handle}_tiktok_details.json", "w") as f:
+        json.dump(wrapper, f)
+
+
+def _tt_int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _normalize_tiktok_item(item):
+    author = item.get("authorMeta") or {}
+    video_meta = item.get("videoMeta") or {}
+    return {
+        "shortCode": item.get("id"),
+        "url": item.get("webVideoUrl"),
+        "caption": item.get("text") or "",
+        "timestamp": item.get("createTimeISO"),
+        "videoDuration": video_meta.get("duration") or 0,
+        "videoPlayCount": _tt_int(item.get("playCount")),
+        "likesCount": _tt_int(item.get("diggCount")),
+        "commentsCount": _tt_int(item.get("commentCount")),
+        "displayUrl": video_meta.get("coverUrl"),
+        "ownerUsername": author.get("name"),
+        "ownerFullName": author.get("nickName"),
+        "platform": "tiktok",
+    }
+
+
+def pass1_tiktok_stats_refresh():
+    """Cheap: scrape last 28 days for the targeted TikTok subset WITHOUT
+    transcripts. Also captures profile details for free — each video
+    item already carries full authorMeta when scraped by profile."""
+    if not TIKTOK_CREATORS:
+        return []
+    handles = list(TIKTOK_CREATORS.values())
+    print(f"PASS 1 (TikTok stats only) for {len(handles)} creators…")
+    run = start_actor(TIKTOK_SCRAPER, {
+        "profiles": handles,
+        "resultsPerPage": 30,
+        "profileSorting": "latest",
+        "oldestPostDateUnified": f"{WINDOW_DAYS} days",
+        "excludePinnedPosts": True,
+        "downloadSubtitlesOptions": "NEVER_DOWNLOAD_SUBTITLES",
+    })
+    run = wait_for_run(run["id"], "tiktok-pass1-stats")
+    if run["status"] != "SUCCEEDED":
+        print(f"  ! TikTok pass1 did not succeed ({run['status']}), skipping TikTok this run")
+        return []
+    items = fetch_dataset(run["defaultDatasetId"])
+    print(f"  scraped {len(items)} TikTok videos (stats only)")
+
+    seen = set()
+    for it in items:
+        author = it.get("authorMeta") or {}
+        tt_handle = author.get("name")
+        if tt_handle and tt_handle not in seen:
+            seen.add(tt_handle)
+            save_tiktok_details(tt_handle, {
+                "username": author.get("name"),
+                "fullName": author.get("nickName") or "",
+                "followersCount": author.get("fans") or 0,
+                "postsCount": author.get("video") or 0,
+                "verified": bool(author.get("verified")),
+                "private": bool(author.get("privateAccount")),
+                "profilePicUrlHD": author.get("avatar") or "",
+            })
+    if seen:
+        print(f"  refreshed {len(seen)} TikTok profile record(s)")
+
+    return [_normalize_tiktok_item(it) for it in items if it.get("id")]
+
+
+def _find_new_tiktok_videos(scraped_items):
+    existing_with_transcripts = set()
+    for tt_handle in TIKTOK_CREATORS.values():
+        for p in load_existing_tiktok_posts(tt_handle):
+            if p.get("transcript") and p.get("shortCode"):
+                existing_with_transcripts.add(p["shortCode"])
+    new_urls = []
+    for it in scraped_items:
+        sc = it.get("shortCode")
+        url = it.get("url")
+        if sc and url and sc not in existing_with_transcripts:
+            new_urls.append(url)
+    return new_urls
+
+
+def merge_tiktok_pass1(scraped_items):
+    grouped = {}
+    for it in scraped_items:
+        u = it.get("ownerUsername")
+        if not u:
+            continue
+        grouped.setdefault(u, []).append(it)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)
+    for tt_handle, fresh in grouped.items():
+        existing = load_existing_tiktok_posts(tt_handle)
+        by_sc = {p["shortCode"]: p for p in existing if p.get("shortCode")}
+        new_count = 0
+        for p in fresh:
+            sc = p.get("shortCode")
+            if not sc:
+                continue
+            old = by_sc.get(sc, {})
+            merged = {**old, **p}
+            if old.get("transcript") and not p.get("transcript"):
+                merged["transcript"] = old["transcript"]
+            if sc not in by_sc:
+                new_count += 1
+            by_sc[sc] = merged
+        kept = [
+            p for p in by_sc.values()
+            if (dt := ts_to_dt(p.get("timestamp"))) and dt >= cutoff
+        ]
+        kept.sort(key=lambda p: p.get("timestamp", ""), reverse=True)
+        save_tiktok_posts(tt_handle, kept)
+        print(f"  @{tt_handle} (TikTok): kept {len(kept)} videos in {WINDOW_DAYS}-day window ({new_count} new)")
+
+
+def _fetch_transcript_text(url):
+    if not url:
+        return None
+    # Apify key-value-store records are private by default — need the
+    # token as a query param, same as every other Apify API call here.
+    sep = "&" if "?" in url else "?"
+    try:
+        req = urllib.request.Request(f"{url}{sep}token={APIFY_TOKEN}", headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.read().decode("utf-8", errors="ignore").strip() or None
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+        print(f"  ! transcript fetch failed ({url}): {e}")
+        return None
+
+
+def pass2_tiktok_transcripts_for_new(new_urls):
+    """Expensive: only for TikTok videos we don't already have transcripts
+    for. transcriptionLink points at a text file in an Apify key-value
+    store — fetch it separately to get the actual transcript text."""
+    if not new_urls:
+        print("PASS 2 (TikTok transcripts): no new videos — skipping ✓")
+        return {}
+    print(f"PASS 2 (TikTok transcripts) for {len(new_urls)} NEW videos…")
+    run = start_actor(TIKTOK_SCRAPER, {
+        "postURLs": new_urls,
+        "downloadSubtitlesOptions": "DOWNLOAD_AND_TRANSCRIBE_VIDEOS_WITHOUT_SUBTITLES",
+    })
+    run = wait_for_run(run["id"], "tiktok-pass2-transcripts", max_wait=1800)
+    if run["status"] != "SUCCEEDED":
+        print(f"  ! TikTok pass2 did not succeed ({run['status']})")
+        return {}
+    items = fetch_dataset(run["defaultDatasetId"])
+    out = {}
+    for it in items:
+        sc = it.get("id")
+        link = (it.get("videoMeta") or {}).get("transcriptionLink")
+        if sc and link:
+            text = _fetch_transcript_text(link)
+            if text:
+                out[sc] = text
+    print(f"  got transcripts for {len(out)} new TikTok video(s)")
+    return out
+
+
+def merge_tiktok_pass2_transcripts(transcript_by_id):
+    if not transcript_by_id:
+        return
+    for tt_handle in TIKTOK_CREATORS.values():
+        existing = load_existing_tiktok_posts(tt_handle)
+        updated = 0
+        for p in existing:
+            sc = p.get("shortCode")
+            if sc in transcript_by_id:
+                p["transcript"] = transcript_by_id[sc]
+                updated += 1
+        if updated:
+            save_tiktok_posts(tt_handle, existing)
+            print(f"  @{tt_handle} (TikTok): added transcripts to {updated} video(s)")
+
 
 def pass1_stats_refresh():
     """Cheap: scrape last 28 days for all creators WITHOUT transcripts.
@@ -410,6 +628,15 @@ def main():
     download_thumbnails()
     extract_all_clips()
     prune_old_assets()
+
+    if TIKTOK_CREATORS:
+        tt_scraped = pass1_tiktok_stats_refresh()
+        tt_new_urls = _find_new_tiktok_videos(tt_scraped)
+        print(f"\nidentified {len(tt_new_urls)} new TikTok videos needing transcripts")
+        merge_tiktok_pass1(tt_scraped)
+        tt_transcripts = pass2_tiktok_transcripts_for_new(tt_new_urls)
+        merge_tiktok_pass2_transcripts(tt_transcripts)
+
     build_dashboard()
     print(f"\n=== refresh done · {datetime.now().isoformat()} ===")
 
