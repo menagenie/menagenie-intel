@@ -60,12 +60,13 @@ jobs:
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "Nouvel échec le $(date -u +%Y-%m-%d) : $RUN_URL"
           else
+            BODY="Le refresh automatique a échoué le $(date -u +%Y-%m-%d).
+
+          Détails du run : $RUN_URL
+
+          Cette issue reste ouverte tant que le problème n'est pas réglé — les échecs suivants seront ajoutés ici en commentaire au lieu de créer une nouvelle issue. Ferme-la une fois corrigé."
             gh issue create --repo "${{ github.repository }}" \
               --title "⚠️ Ménagénie Intel — le refresh a échoué" \
-              --body "Le refresh automatique a échoué le $(date -u +%Y-%m-%d).
-
-Détails du run : $RUN_URL
-
-Cette issue reste ouverte tant que le problème n'est pas réglé — les échecs suivants seront ajoutés ici en commentaire au lieu de créer une nouvelle issue. Ferme-la une fois corrigé." \
+              --body "$BODY" \
               --label "refresh-failed"
           fi

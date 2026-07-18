@@ -70,9 +70,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          BODY="La découverte automatique a ajouté ${{ steps.discover.outputs.added_count }} nouveau(x) compte(s) : ${{ steps.discover.outputs.added_handles }}
+
+          Ils seront inclus dans le prochain refresh du dimanche. Retire-les de config.json si l'un d'eux ne convient pas."
           gh issue create --repo "${{ github.repository }}" \
             --title "🆕 Ménagénie Intel — nouveaux comptes découverts ($(date -u +%Y-%m-%d))" \
-            --body "La découverte automatique a ajouté ${{ steps.discover.outputs.added_count }} nouveau(x) compte(s) : ${{ steps.discover.outputs.added_handles }}
-
-Ils seront inclus dans le prochain refresh du dimanche. Retire-les de config.json si l'un d'eux ne convient pas." \
+            --body "$BODY" \
             --label "new-creators"
