@@ -1,0 +1,78 @@
+name: Ménagénie Intel — découverte mensuelle
+
+on:
+  # Fires every Sunday at 12:00 UTC; the "gate" job below only lets the
+  # actual discovery run proceed on the first Sunday of the month
+  # (cron can't express "1st Sunday" directly — day-of-month and
+  # day-of-week fields are OR'd, not AND'd).
+  schedule:
+    - cron: "0 12 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        run: |
+          DAY=$(date -u +%d)
+          if [ "$DAY" -le 7 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  discover:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run discovery pipeline
+        id: discover
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+        run: python3 discover.py
+
+      - name: Commit new creators
+        run: |
+          git config user.name  "menagenie-intel-bot"
+          git config user.email "menagenie-intel-bot@users.noreply.github.com"
+          git add config.json || true
+          if git diff --staged --quiet; then
+            echo "No new creators to commit."
+          else
+            git commit -m "Découverte: $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Notify new creators found
+        if: steps.discover.outputs.added_count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "${{ github.repository }}" \
+            --title "🆕 Ménagénie Intel — nouveaux comptes découverts ($(date -u +%Y-%m-%d))" \
+            --body "La découverte automatique a ajouté ${{ steps.discover.outputs.added_count }} nouveau(x) compte(s) : ${{ steps.discover.outputs.added_handles }}
+
+Ils seront inclus dans le prochain refresh du dimanche. Retire-les de config.json si l'un d'eux ne convient pas." \
+            --label "new-creators"
