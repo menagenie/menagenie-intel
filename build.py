@@ -203,6 +203,12 @@ def main():
         names (see refresh.py), so this is shared between platforms —
         each platform gets its OWN median/outlier baseline rather than a
         blended one, since view counts aren't comparable across them."""
+        # Multi-topic creators post plenty of content unrelated to
+        # cleaning (parenting, decor, recipes...) — exclude it up front
+        # so it never skews the median or shows up as a false outlier.
+        # is_relevant defaults to True until refresh.py's classification
+        # pass catches up, so nothing is hidden prematurely.
+        posts = [p for p in posts if p.get("is_relevant", True) is not False]
         views_list = [p.get("videoPlayCount") or p.get("videoViewCount") or 0 for p in posts]
         median_plays = statistics.median(views_list) if views_list else 0
 

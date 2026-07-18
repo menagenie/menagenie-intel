@@ -66,6 +66,37 @@ def _call_claude(system, user_message, max_tokens=300):
         return None
 
 
+def is_relevant(caption, transcript):
+    """Is this post actually about residential/commercial cleaning, home
+    organization, or a closely related niche? Multi-topic lifestyle
+    influencers (parenting, decor, recipes...) post plenty of content
+    that has nothing to do with cleaning even though the account itself
+    was added as a cleaning-niche creator.
+
+    Defaults to True (keep) when there's no usable text or no API key —
+    this must never penalize accounts that just have weak captioning
+    (e.g. small local competitors relying on trending audio with no
+    caption at all); it only screens out posts with a clear off-topic
+    signal in the text."""
+    text = f"{caption or ''}\n{transcript or ''}".strip()
+    if not text or not ANTHROPIC_API_KEY:
+        return True
+    system = (
+        "Tu juges si un post/reel est pertinent pour un outil de veille "
+        "concurrentielle sur l'entretien ménager (nettoyage résidentiel "
+        "ou commercial, organisation, rangement de la maison). Réponds "
+        "UNIQUEMENT par 'oui' ou 'non'. Si le sujet est clairement autre "
+        "chose (parentalité, mode, recettes, business général sans lien "
+        "avec le ménage, etc.), réponds 'non'. Si le texte est ambigu, "
+        "trop court, ou ne permet pas de juger, réponds 'oui' (bénéfice "
+        "du doute)."
+    )
+    result = _call_claude(system, text[:500], max_tokens=5)
+    if not result:
+        return True
+    return "non" not in result.lower()[:10]
+
+
 def classify_hook(transcript):
     """Return one of SPOKEN_HOOK_TYPES, or None if classification fails
     or there's no transcript to classify."""

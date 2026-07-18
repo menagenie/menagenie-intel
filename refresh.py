@@ -632,6 +632,38 @@ def build_dashboard():
     print(r.stdout.strip())
 
 
+def classify_all_relevance():
+    """Cheap: tag every post/video with is_relevant (True/False) so
+    build.py can hide content that has nothing to do with cleaning —
+    multi-topic lifestyle influencers post plenty of that even though
+    the account itself was added as a cleaning-niche creator. Judged
+    from caption + transcript combined, so it also covers posts with no
+    transcript at all. No-ops per-item if ANTHROPIC_API_KEY isn't set."""
+    tagged = 0
+    for handle in CREATORS:
+        posts = load_existing_posts(handle)
+        changed = False
+        for p in posts:
+            if "is_relevant" not in p:
+                p["is_relevant"] = analyze.is_relevant(p.get("caption"), p.get("transcript"))
+                tagged += 1
+                changed = True
+        if changed:
+            save_posts(handle, posts)
+    for tt_handle in TIKTOK_CREATORS.values():
+        posts = load_existing_tiktok_posts(tt_handle)
+        changed = False
+        for p in posts:
+            if "is_relevant" not in p:
+                p["is_relevant"] = analyze.is_relevant(p.get("caption"), p.get("transcript"))
+                tagged += 1
+                changed = True
+        if changed:
+            save_tiktok_posts(tt_handle, posts)
+    if tagged:
+        print(f"tagged relevance for {tagged} post(s)")
+
+
 def classify_all_hooks():
     """Cheap: classify hook type for every reel/video that has a
     transcript but no hook_type yet, across every creator and platform.
@@ -641,7 +673,7 @@ def classify_all_hooks():
         posts = load_existing_posts(handle)
         changed = False
         for p in posts:
-            if p.get("transcript") and not p.get("hook_type"):
+            if p.get("transcript") and not p.get("hook_type") and p.get("is_relevant", True):
                 hook_type = analyze.classify_hook(p["transcript"])
                 if hook_type:
                     p["hook_type"] = hook_type
@@ -653,7 +685,7 @@ def classify_all_hooks():
         posts = load_existing_tiktok_posts(tt_handle)
         changed = False
         for p in posts:
-            if p.get("transcript") and not p.get("hook_type"):
+            if p.get("transcript") and not p.get("hook_type") and p.get("is_relevant", True):
                 hook_type = analyze.classify_hook(p["transcript"])
                 if hook_type:
                     p["hook_type"] = hook_type
@@ -757,6 +789,7 @@ def main():
         tt_transcripts = pass2_tiktok_transcripts_for_new(tt_new_urls)
         merge_tiktok_pass2_transcripts(tt_transcripts)
 
+    classify_all_relevance()
     classify_all_hooks()
     build_dashboard()
     generate_digest()
