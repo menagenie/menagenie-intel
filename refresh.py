@@ -294,10 +294,14 @@ def _find_new_tiktok_videos(scraped_items):
 
 
 def merge_tiktok_pass1(scraped_items):
+    known_handles = set(TIKTOK_CREATORS.values())
     grouped = {}
     for it in scraped_items:
         u = it.get("ownerUsername")
-        if not u:
+        # Collab posts sometimes get attributed to the co-author's handle
+        # instead of the tracked creator's — drop those instead of
+        # spawning a data file for an account we never asked to track.
+        if not u or u not in known_handles:
             continue
         grouped.setdefault(u, []).append(it)
 
@@ -464,10 +468,14 @@ def merge_pass1_stats(scraped_items):
     """Merge pass-1 (stats-only) results into existing per-creator JSON.
     Preserves transcripts from existing records; updates plays/likes/comments
     from the fresh scrape."""
+    known_handles = set(CREATORS)
     grouped = {}
     for it in scraped_items:
         u = it.get("ownerUsername")
-        if not u:
+        # Collab posts sometimes get attributed to the co-author's handle
+        # instead of the tracked creator's — drop those instead of
+        # spawning a data file for an account we never asked to track.
+        if not u or u not in known_handles:
             continue
         grouped.setdefault(u, []).append(it)
 
