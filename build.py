@@ -265,6 +265,7 @@ def main():
                 "creator_avatar": profile_path,
                 "creator_verified": creator_meta["verified"],
                 "platform": platform,
+                "still_climbing": bool(p.get("still_climbing")),
             })
         return creator_meta, rows
 
@@ -453,6 +454,7 @@ def main():
   td.outlier-cell {{ width: 86px; }}
   .outlier-pill {{ display: inline-flex; align-items: center; justify-content: center; min-width: 54px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #0a0a0c; font-variant-numeric: tabular-nums; }}
   .outlier-pill.normal {{ background: rgba(255,255,255,.10); color: var(--fg-dim); }}
+  .climbing-badge {{ display: inline-block; margin-left: 4px; color: #2DD46F; font-weight: 700; font-size: 12px; }}
 
   td.creator-col {{ width: 140px; }}
   .handle {{ font-size: 12px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; display: inline-block; }}
@@ -860,6 +862,7 @@ function renderTable() {{
         </td>
         <td class="outlier-cell">
           <span class="${{pillClass}}" ${{pillStyle}}>${{ratioStr}}</span>
+          ${{r.still_climbing ? '<span class="climbing-badge" title="Plays grew 1.5×+ since last refresh">↗</span>' : ''}}
         </td>
         <td class="creator-col">
           <span class="handle">${{r.platform === "tiktok" ? "🎵 " : "📸 "}}@${{escapeHtml(r.creator_username)}}</span>

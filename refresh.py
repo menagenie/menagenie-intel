@@ -138,6 +138,26 @@ def ts_to_dt(ts):
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 
+def _apply_history(old, merged, today_str):
+    """Track a rolling history of weekly snapshots on a post so the
+    dashboard can tell whether a reel is still gaining traction, not
+    just its current point-in-time count. Keeps the last 5 snapshots —
+    enough to cover the 28-day window at a weekly cadence."""
+    history = list(old.get("history") or [])
+    plays = merged.get("videoPlayCount") or merged.get("videoViewCount") or 0
+    if not history or history[-1]["date"] != today_str:
+        history.append({
+            "date": today_str,
+            "plays": plays,
+            "likes": merged.get("likesCount") or 0,
+            "comments": merged.get("commentsCount") or 0,
+        })
+    merged["history"] = history[-5:]
+    prev_plays = history[-2]["plays"] if len(history) >= 2 else None
+    merged["still_climbing"] = bool(prev_plays and plays > prev_plays * 1.5)
+    return merged
+
+
 REEL_FIELDS = [
     "shortCode", "url", "caption", "timestamp", "videoDuration",
     "videoPlayCount", "videoViewCount", "likesCount", "commentsCount",
@@ -280,6 +300,7 @@ def merge_tiktok_pass1(scraped_items):
         grouped.setdefault(u, []).append(it)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     for tt_handle, fresh in grouped.items():
         existing = load_existing_tiktok_posts(tt_handle)
         by_sc = {p["shortCode"]: p for p in existing if p.get("shortCode")}
@@ -292,6 +313,7 @@ def merge_tiktok_pass1(scraped_items):
             merged = {**old, **p}
             if old.get("transcript") and not p.get("transcript"):
                 merged["transcript"] = old["transcript"]
+            merged = _apply_history(old, merged, today_str)
             if sc not in by_sc:
                 new_count += 1
             by_sc[sc] = merged
@@ -447,6 +469,7 @@ def merge_pass1_stats(scraped_items):
             continue
         grouped.setdefault(u, []).append(it)
 
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     for handle, fresh in grouped.items():
         existing = load_existing_posts(handle)
         by_sc = {p["shortCode"]: p for p in existing if p.get("shortCode")}
@@ -460,6 +483,7 @@ def merge_pass1_stats(scraped_items):
             # PRESERVE transcript if we already had it (pass 1 has no transcript)
             if old.get("transcript") and not p.get("transcript"):
                 merged["transcript"] = old["transcript"]
+            merged = _apply_history(old, merged, today_str)
             if sc not in by_sc:
                 new_count += 1
             by_sc[sc] = merged
