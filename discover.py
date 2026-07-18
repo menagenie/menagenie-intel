@@ -40,6 +40,15 @@ MIN_POSTS = 5
 MAX_NEW_PER_RUN = 3
 MAX_VERIFY_ATTEMPTS = 15  # bound worst-case Apify spend even if nothing qualifies
 
+# Hashtag co-occurrence pulls in unrelated accounts (e.g. a nutritionist
+# whose post happened to carry #entretienmenager). Require the bio or
+# name to actually mention cleaning before auto-adding.
+RELEVANCE_KEYWORDS = [
+    "nettoyage", "ménage", "menage", "entretien ménager", "entretien menager",
+    "cleaning", "clean", "maid", "housekeeping", "désinfection", "desinfection",
+    "conciergerie", "janitorial", "entretien commercial",
+]
+
 
 def apify_post(path, body):
     url = f"https://api.apify.com/v2/{path}?token={APIFY_TOKEN}"
@@ -130,6 +139,10 @@ def verify_candidate(handle):
     private = bool(item.get("private"))
     if private or not (MIN_FOLLOWERS <= followers <= MAX_FOLLOWERS) or posts < MIN_POSTS:
         print(f"  @{handle}: rejected (followers={followers}, posts={posts}, private={private})")
+        return None
+    haystack = f"{item.get('biography') or ''} {item.get('fullName') or ''}".lower()
+    if not any(kw in haystack for kw in RELEVANCE_KEYWORDS):
+        print(f"  @{handle}: rejected (bio doesn't mention cleaning — likely hashtag coincidence)")
         return None
     print(f"  @{handle}: accepted (followers={followers}, posts={posts})")
     return {
