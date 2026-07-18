@@ -85,9 +85,22 @@ def classify_hook(transcript):
     return None
 
 
+
+# Substrings that mean Claude asked a clarifying question or refused
+# instead of producing a script — happens on very short/low-signal
+# transcripts (e.g. "No, hello?"). Treat as a failed generation rather
+# than caching garbage onto the post forever.
+_REFUSAL_MARKERS = [
+    "je ne vois pas", "pourriez-vous", "pouvez-vous", "peux-tu préciser",
+    "as-tu plus de", "manque d'information", "besoin de plus",
+    "i don't see", "could you provide", "can you share", "can you clarify",
+]
+
+
 def generate_adaptation(transcript, hook_type):
     """Draft a short Ménagénie-branded opening line inspired by this
-    outlier's hook mechanism. Returns None on failure."""
+    outlier's hook mechanism. Returns None on failure (including when
+    the model asks a clarifying question instead of writing the script)."""
     if not transcript or not transcript.strip() or not ANTHROPIC_API_KEY:
         return None
     system = (
@@ -97,7 +110,14 @@ def generate_adaptation(transcript, hook_type):
         f"ouverture de 2-3 phrases (en français québécois, adaptée à "
         f"Ménagénie) qui reprend le MÊME mécanisme d'accroche sur un sujet "
         f"pertinent au ménage résidentiel ou commercial. Ne traduis pas "
-        f"littéralement — adapte l'angle. Réponds seulement avec le script, "
-        f"sans préambule ni guillemets."
+        f"littéralement — adapte l'angle. Même si la transcription fournie "
+        f"est très courte ou ambiguë, travaille avec le peu que tu as — "
+        f"inspire-toi du STYLE et du RYTHME du hook plutôt que de son "
+        f"contenu littéral. Ne pose JAMAIS de question de clarification et "
+        f"ne demande jamais plus de contexte : réponds uniquement avec le "
+        f"script final, sans préambule ni guillemets."
     )
-    return _call_claude(system, transcript[:600], max_tokens=200)
+    result = _call_claude(system, transcript[:600], max_tokens=200)
+    if result and any(marker in result.lower() for marker in _REFUSAL_MARKERS):
+        return None
+    return result
