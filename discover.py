@@ -30,15 +30,22 @@ HASHTAG_SCRAPER = "apify~instagram-hashtag-scraper"
 PROFILE_SCRAPER = "apify~instagram-scraper"
 
 HASHTAGS = [
+    # QC/Montréal-specific (FR)
     "nettoyagequebec", "entretienmenager", "menagequebec",
-    "cleaningmontreal", "nettoyagemontreal", "menagemontreal",
+    "nettoyagemontreal", "menagemontreal",
+    # Broader FR (not geo-limited — catches francophone accounts outside QC too)
+    "nettoyagemaison", "astucemenage", "servicemenager",
+    "entreprisenettoyage", "nettoyagecommercial",
+    # EN (broader cleaning-niche, not geo-limited)
+    "cleaningmontreal", "cleaningbusiness", "cleaningservice",
+    "housecleaning", "commercialcleaning", "cleaningcompany",
 ]
 
 MIN_FOLLOWERS = 500
 MAX_FOLLOWERS = 500_000
 MIN_POSTS = 5
 MAX_NEW_PER_RUN = 3
-MAX_VERIFY_ATTEMPTS = 15  # bound worst-case Apify spend even if nothing qualifies
+MAX_VERIFY_ATTEMPTS = 25  # bound worst-case Apify spend even if nothing qualifies — raised alongside the wider hashtag net
 
 # Hashtag co-occurrence pulls in unrelated accounts (e.g. a nutritionist
 # whose post happened to carry #entretienmenager). Require the bio or
