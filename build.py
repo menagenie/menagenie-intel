@@ -960,6 +960,7 @@ const modalBadge = document.getElementById("modal-clip-badge");
 const modalSourceToggle = document.getElementById("modal-source-toggle");
 
 let modalCurrentShortCode = null;
+let modalCurrentPlatform = "instagram";
 let modalShowingClip = true;
 
 function showClipMode(shortCode) {{
@@ -974,12 +975,14 @@ function showClipMode(shortCode) {{
   modalSourceToggle.textContent = "Show full reel ↗";
 }}
 
-function showIframeMode(shortCode) {{
+function showIframeMode(shortCode, platform) {{
   modalShowingClip = false;
   modalVideo.pause();
   modalVideo.src = "";
   modalVideo.hidden = true;
-  modalIframe.src = `https://www.instagram.com/p/${{shortCode}}/embed/captioned/`;
+  modalIframe.src = platform === "tiktok"
+    ? `https://www.tiktok.com/embed/v2/${{shortCode}}`
+    : `https://www.instagram.com/p/${{shortCode}}/embed/captioned/`;
   modalIframe.hidden = false;
   modalBadge.hidden = true;
   modalSourceToggle.hidden = false;
@@ -988,7 +991,7 @@ function showIframeMode(shortCode) {{
 
 modalSourceToggle.addEventListener("click", () => {{
   if (!modalCurrentShortCode) return;
-  if (modalShowingClip) showIframeMode(modalCurrentShortCode);
+  if (modalShowingClip) showIframeMode(modalCurrentShortCode, modalCurrentPlatform);
   else showClipMode(modalCurrentShortCode);
 }});
 
@@ -996,10 +999,11 @@ function openModal(shortCode) {{
   const r = REELS.find(x => x.shortCode === shortCode);
   if (!r) return;
   modalCurrentShortCode = shortCode;
+  modalCurrentPlatform = r.platform;
   if (r.hasClip) {{
     showClipMode(shortCode);
   }} else {{
-    showIframeMode(shortCode);
+    showIframeMode(shortCode, r.platform);
     modalSourceToggle.hidden = true;  // no clip to toggle back to
   }}
   document.getElementById("modal-hook").textContent = r.hook || "(no hook)";
@@ -1026,9 +1030,11 @@ function openModal(shortCode) {{
   if (r.adapted_script) {{
     adaptationBlock.hidden = false;
     document.getElementById("modal-adaptation").textContent = r.adapted_script;
+    const genParams = new URLSearchParams();
+    if (r.hook_type) genParams.set("hook", r.hook_type);
+    if (r.transcript) genParams.set("transcript", r.transcript);
     document.getElementById("modal-generator-link").href =
-      "https://hub-rapports.vercel.app/reports/generateur-script-video.html" +
-      (r.hook_type ? `?hook=${{encodeURIComponent(r.hook_type)}}` : "");
+      "https://hub-rapports.vercel.app/reports/generateur-script-video.html?" + genParams.toString();
   }} else {{
     adaptationBlock.hidden = true;
   }}

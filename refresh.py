@@ -350,7 +350,11 @@ def _fetch_transcript_text(url):
 def pass2_tiktok_transcripts_for_new(new_urls):
     """Expensive: only for TikTok videos we don't already have transcripts
     for. transcriptionLink points at a text file in an Apify key-value
-    store — fetch it separately to get the actual transcript text."""
+    store — fetch it separately to get the actual transcript text.
+    Also requests a downloadable copy of the video (mediaUrls) so
+    extract_all_clips() has something to cut a local hook clip from —
+    without this, the dashboard modal falls back to an embed, and
+    TikTok has no equivalent to Instagram's public post-embed iframe."""
     if not new_urls:
         print("PASS 2 (TikTok transcripts): no new videos — skipping ✓")
         return {}
@@ -358,6 +362,7 @@ def pass2_tiktok_transcripts_for_new(new_urls):
     run = start_actor(TIKTOK_SCRAPER, {
         "postURLs": new_urls,
         "downloadSubtitlesOptions": "DOWNLOAD_AND_TRANSCRIBE_VIDEOS_WITHOUT_SUBTITLES",
+        "shouldDownloadVideos": True,
     })
     run = wait_for_run(run["id"], "tiktok-pass2-transcripts", max_wait=1800)
     if run["status"] != "SUCCEEDED":
@@ -367,29 +372,37 @@ def pass2_tiktok_transcripts_for_new(new_urls):
     out = {}
     for it in items:
         sc = it.get("id")
+        if not sc:
+            continue
+        entry = {}
         link = (it.get("videoMeta") or {}).get("transcriptionLink")
-        if sc and link:
+        if link:
             text = _fetch_transcript_text(link)
             if text:
-                out[sc] = text
-    print(f"  got transcripts for {len(out)} new TikTok video(s)")
+                entry["transcript"] = text
+        media_urls = it.get("mediaUrls") or []
+        if media_urls:
+            entry["videoUrl"] = media_urls[0]
+        if entry:
+            out[sc] = entry
+    print(f"  got data for {len(out)} new TikTok video(s)")
     return out
 
 
-def merge_tiktok_pass2_transcripts(transcript_by_id):
-    if not transcript_by_id:
+def merge_tiktok_pass2_transcripts(data_by_id):
+    if not data_by_id:
         return
     for tt_handle in TIKTOK_CREATORS.values():
         existing = load_existing_tiktok_posts(tt_handle)
         updated = 0
         for p in existing:
             sc = p.get("shortCode")
-            if sc in transcript_by_id:
-                p["transcript"] = transcript_by_id[sc]
+            if sc in data_by_id:
+                p.update(data_by_id[sc])
                 updated += 1
         if updated:
             save_tiktok_posts(tt_handle, existing)
-            print(f"  @{tt_handle} (TikTok): added transcripts to {updated} video(s)")
+            print(f"  @{tt_handle} (TikTok): updated {updated} video(s)")
 
 
 def pass1_stats_refresh():
@@ -560,6 +573,12 @@ def download_thumbnails():
             url = p.get("displayUrl")
             if sc and url:
                 jobs.append((url, THUMBS / f"{sc}.jpg"))
+    for tt_handle in TIKTOK_CREATORS.values():
+        for p in load_existing_tiktok_posts(tt_handle):
+            sc = p.get("shortCode")
+            url = p.get("displayUrl")
+            if sc and url:
+                jobs.append((url, THUMBS / f"{sc}.jpg"))
     pending = [(u, d) for (u, d) in jobs if not (d.exists() and d.stat().st_size > 0)]
     if pending:
         print(f"downloading {len(pending)} thumbnails…")
@@ -602,6 +621,8 @@ def extract_all_clips():
     all_posts = []
     for handle in CREATORS:
         all_posts.extend(load_existing_posts(handle))
+    for tt_handle in TIKTOK_CREATORS.values():
+        all_posts.extend(load_existing_tiktok_posts(tt_handle))
     print(f"checking clips for {len(all_posts)} reels…")
     counts = {"ok": 0, "have": 0, "fail": 0, "skip": 0, "timeout": 0}
     with ThreadPoolExecutor(max_workers=8) as ex:
@@ -615,6 +636,11 @@ def prune_old_assets():
     keep = set()
     for handle in CREATORS:
         for p in load_existing_posts(handle):
+            sc = p.get("shortCode")
+            if sc:
+                keep.add(sc)
+    for tt_handle in TIKTOK_CREATORS.values():
+        for p in load_existing_tiktok_posts(tt_handle):
             sc = p.get("shortCode")
             if sc:
                 keep.add(sc)
