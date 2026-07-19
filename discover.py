@@ -18,6 +18,8 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+import analyze
+
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config.json"
 
@@ -150,6 +152,13 @@ def verify_candidate(handle):
     haystack = f"{item.get('biography') or ''} {item.get('fullName') or ''}".lower()
     if not any(kw in haystack for kw in RELEVANCE_KEYWORDS):
         print(f"  @{handle}: rejected (bio doesn't mention cleaning — likely hashtag coincidence)")
+        return None
+    # Keyword match alone isn't enough to tell a real cleaning SERVICE
+    # business apart from a cleaning-product supplier, a "start your
+    # cleaning business" coaching academy, or a car-detailing service —
+    # all of which mention "cleaning"/"nettoyage" in their bio too.
+    if not analyze.is_cleaning_service_account(item.get("biography"), item.get("fullName")):
+        print(f"  @{handle}: rejected (bio mentions cleaning but isn't a cleaning service business)")
         return None
     print(f"  @{handle}: accepted (followers={followers}, posts={posts})")
     return {

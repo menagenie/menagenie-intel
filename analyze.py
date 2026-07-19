@@ -97,6 +97,36 @@ def is_relevant(caption, transcript):
     return "non" not in result.lower()[:10]
 
 
+def is_cleaning_service_account(bio, full_name):
+    """Is this Instagram account actually a residential/commercial
+    cleaning SERVICE business (someone Ménagénie competes with or takes
+    inspiration from) — not a raw-materials supplier, a cleaning-product
+    brand, a business-coaching/franchise academy, a car-detailing
+    business, or something merely bio-keyword-adjacent? Used by
+    discover.py's account-level guardrail; keyword matching alone let
+    through a cleaning-supplies manufacturer and an auto-detailing
+    coaching account, since both bios happened to contain "cleaning"/
+    "nettoyage". Defaults to True (keep) when there's no API key, so
+    discovery still works (just less precisely) without one."""
+    text = f"{full_name or ''}\n{bio or ''}".strip()
+    if not text or not ANTHROPIC_API_KEY:
+        return True
+    system = (
+        "Tu juges si un compte Instagram est une VRAIE entreprise de "
+        "service de nettoyage résidentiel ou commercial (quelqu'un qui "
+        "nettoie des maisons, condos ou bureaux pour des clients) — pas "
+        "un fournisseur de produits ou matières premières de nettoyage, "
+        "pas une académie/coaching business qui vend des formations sur "
+        "\"comment lancer une entreprise de nettoyage\", pas un service "
+        "de nettoyage automobile/de voitures, et pas un compte sans "
+        "rapport réel. Réponds UNIQUEMENT par 'oui' ou 'non'."
+    )
+    result = _call_claude(system, text[:400], max_tokens=5)
+    if not result:
+        return True
+    return "non" not in result.lower()[:10]
+
+
 def classify_hook(transcript):
     """Return one of SPOKEN_HOOK_TYPES, or None if classification fails
     or there's no transcript to classify."""

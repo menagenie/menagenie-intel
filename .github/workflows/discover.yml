@@ -51,6 +51,7 @@ jobs:
         id: discover
         env:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python3 discover.py
 
       - name: Commit new creators
