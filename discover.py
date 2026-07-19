@@ -47,7 +47,7 @@ MIN_FOLLOWERS = 500
 MAX_FOLLOWERS = 500_000
 MIN_POSTS = 5
 MAX_NEW_PER_RUN = 3
-MAX_VERIFY_ATTEMPTS = 25  # bound worst-case Apify spend even if nothing qualifies — raised alongside the wider hashtag net
+MAX_VERIFY_ATTEMPTS = 120  # bound worst-case Apify spend even if nothing qualifies — covers a real slice of the ~300+ candidates the wider hashtag net finds, not just the first page
 
 # Hashtag co-occurrence pulls in unrelated accounts (e.g. a nutritionist
 # whose post happened to carry #entretienmenager). Require the bio or
