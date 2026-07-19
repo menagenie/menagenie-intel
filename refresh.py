@@ -594,6 +594,13 @@ def extract_clip(post):
     out = CLIPS / f"{sc}.mp4"
     if out.exists() and out.stat().st_size > 0:
         return (sc, "have")
+    if "api.apify.com" in url:
+        # TikTok videos are downloaded into a private Apify key-value
+        # store — needs the token to fetch. Appended only here, at use
+        # time, so the raw (unauthenticated) URL is what stays committed
+        # to this public repo's data/ files, not a token-bearing one.
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}token={APIFY_TOKEN}"
     cmd = [
         "ffmpeg", "-y", "-loglevel", "error",
         "-user_agent", UA,
